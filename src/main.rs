@@ -5,7 +5,7 @@ use anyhow::Result;
 
 use clap::Parser;
 
-const MODEL: &str = "deepseek-r1:1.5b";
+const DEFAULT_MODEL: &str = "deepseek-r1:1.5b";
 
 #[derive(clap::Parser, Debug)]
 struct Args {
@@ -25,9 +25,14 @@ struct TaskOutput {
     model: String,
 }
 
+// Return the model name to use, falling back to the hardcoded default
+fn get_model_name() -> String {
+    std::env::var("SCHED_MODEL").unwrap_or(DEFAULT_MODEL.to_string())
+}
+
 async fn setup_model() -> Result<()> {
     let ollama = Ollama::default();
-    ollama.pull_model(MODEL.to_string(), true).await?;
+    ollama.pull_model(get_model_name(), true).await?;
     Ok(())
 }
 
@@ -85,11 +90,12 @@ fn parse_output_filename(file_name: &str) -> Option<(&str, &str)> {
 
 async fn generate_output(task: &Task) -> TaskOutput {
     let ollama = Ollama::default();
-    let res = ollama.generate(GenerationRequest::new(MODEL.to_string(), &task.prompt)).await.unwrap();
+    let model = get_model_name();
+    let res = ollama.generate(GenerationRequest::new(model.clone(), &task.prompt)).await.unwrap();
 
     TaskOutput {
         response: res.response,
-        model: MODEL.to_string(),
+        model,
     }
 }
 
