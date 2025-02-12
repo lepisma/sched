@@ -1,0 +1,12 @@
+#+TITLE: sched
+
+Scheduler for ML jobs across my machines. This works simply by having a network
+of machines sharing /tasks/ and /results/ together via any file sharing protocol. A
+task is a structured file that specifies, for now, a problem for LLM to solve
+along with some requirements on the model. A machine that has the capability and
+time to solve this solves them and writes out corresponding result file for
+syncing.
+
+For my use case, I am starting with creating a shared syncthing directory for
+tasks and results. The worker is a simple binary running on a cron on my
+machines that can run decent sized LLMs. This repository houses the worker code.
