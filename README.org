@@ -7,16 +7,23 @@ along with some requirements on the model. A machine that has the capability and
 time to solve this solves them and writes out corresponding result file for
 syncing.
 
-For my use case, I am starting with creating a shared syncthing directory for
-tasks and results. The worker is a simple binary running on my machines that can
-run decent sized LLMs. This repository houses the worker code.
+A task file is simply a text file with LLM prompt named with a unique task id
+along with ~.task~ extension. Result file has LLM response as content with the
+file name like ~<task-id>.<model>.output~. See ~./examples~ directory for example
+tasks and output files.
 
-To run the worker, first ensure you have ~ollama~ installed. Then run:
+For my use case, I am using a shared [[https://syncthing.net/][syncthing]] directory for tasks and
+results. The worker is a simple binary running on my machines that can run
+decent sized LLMs. This repository houses the worker code.
+
+To run the worker, first ensure you have [[https://ollama.com/][Ollama]] installed. Then run the
+following command which will continue to check the directory for new tasks and
+run them whenever the machine is free-ish:
 
 #+begin_src shell
   sched ./path/to/tasks/dir
 #+end_src
 
-Currently it defaults to a hardcoded model ~deepseek-r1:1.5b~ but this will
-change. Mostly we will allow providing model name via an environment variable or
-as an specification in the task themselves.
+Currently it defaults to a hardcoded model ~deepseek-r1:1.5b~. You can use a
+different model by providing the Ollama model name in the environment variable
+~SCHED_MODEL~.
