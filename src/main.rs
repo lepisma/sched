@@ -97,9 +97,21 @@ fn generate_file_name(task: &Task, task_output: &TaskOutput) -> String {
     format!("{}.{}.output", task.id, task_output.model)
 }
 
-fn is_machine_busy() -> bool {
-    // TODO
-    false
+async fn is_machine_busy(duration: usize) -> bool {
+    let mut sys = sysinfo::System::new_all();
+    let mut total_usage = 0.0;
+
+    for _ in 0..duration {
+        sys.refresh_cpu_all();
+        let usage: f32 = sys.cpus().iter().map(|cpu| cpu.cpu_usage()).sum::<f32>() / sys.cpus().len() as f32;
+        total_usage += usage;
+        tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+    }
+
+    let average_usage = total_usage / duration as f32;
+    log::debug!("Average usage in last {} seconds: {:.2}%", duration, average_usage);
+
+    average_usage > 30.0
 }
 
 #[tokio::main]
@@ -124,9 +136,8 @@ async fn main() -> Result<()> {
                     log::info!("Waiting before working on task");
                     // Wait for some time between tasks and check if the machine
                     // is free. We are in no hurry.
-                    tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
-                    if is_machine_busy() {
-                        log::info!("Machine busy, waiting...");
+                    if is_machine_busy(10).await {
+                        log::info!("Machine busy...");
                     } else {
                         log::info!("Running task");
                         break;
