@@ -97,34 +97,57 @@ fn generate_file_name(task: &Task, task_output: &TaskOutput) -> String {
     format!("{}.{}.output", task.id, task_output.model)
 }
 
+fn is_machine_busy() -> bool {
+    // TODO
+    false
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     env_logger::init();
     let args = Args::parse();
     setup_model().await?;
 
-    let tasks: Vec<Task> = read_tasks(&args.dir_path)
-        .into_iter()
-        .filter(|t| read_outputs(&args.dir_path, t).is_empty())
-        .collect();
+    loop {
+        let tasks: Vec<Task> = read_tasks(&args.dir_path)
+            .into_iter()
+            .filter(|t| read_outputs(&args.dir_path, t).is_empty())
+            .collect();
 
-    log::info!("Found {} task(s) to do.", tasks.len());
+        log::info!("Found {} task(s) to do.", tasks.len());
 
-    if !tasks.is_empty() {
-        let bar = indicatif::ProgressBar::new(tasks.len() as u64);
+        if !tasks.is_empty() {
+            let bar = indicatif::ProgressBar::new(tasks.len() as u64);
 
-        for task in tasks {
-            let task_output = generate_output(&task).await;
-            let file_name = generate_file_name(&task, &task_output);
+            for task in tasks {
+                loop {
+                    log::info!("Waiting before working on task");
+                    // Wait for some time between tasks and check if the machine
+                    // is free. We are in no hurry.
+                    tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+                    if is_machine_busy() {
+                        log::info!("Machine busy, waiting...");
+                    } else {
+                        log::info!("Running task");
+                        break;
+                    }
+                }
 
-            let mut file = fs::File::create(args.dir_path.join(file_name))?;
-            file.write_all(task_output.response.as_bytes())?;
+                let task_output = generate_output(&task).await;
+                let file_name = generate_file_name(&task, &task_output);
 
-            bar.inc(1);
+                let mut file = fs::File::create(args.dir_path.join(file_name))?;
+                file.write_all(task_output.response.as_bytes())?;
+
+                bar.inc(1);
+            }
+
+            bar.finish();
         }
 
-        bar.finish();
+        // Wait for some time and then re-check tasks
+        let wait_time_m = 10;
+        log::info!("Waiting for {} minutes", wait_time_m);
+        tokio::time::sleep(tokio::time::Duration::from_secs(wait_time_m * 60)).await;
     }
-
-    Ok(())
 }
