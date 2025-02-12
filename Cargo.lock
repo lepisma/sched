@@ -365,16 +365,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gethostname"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4fd4b8790c0792e3b11895efdf5f289ebe8b59107a6624f1cce68f24ff8c7035"
-dependencies = [
- "rustix",
- "windows-targets",
-]
-
-[[package]]
 name = "getrandom"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1071,7 +1061,6 @@ dependencies = [
  "anyhow",
  "clap",
  "env_logger",
- "gethostname",
  "indicatif",
  "log",
  "ollama-rs",

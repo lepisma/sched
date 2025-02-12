@@ -23,7 +23,12 @@ struct Task {
 struct TaskOutput {
     response: String,
     model: String,
-    machine: String
+}
+
+async fn setup_model() -> Result<()> {
+    let ollama = Ollama::default();
+    ollama.pull_model(MODEL.to_string(), true).await?;
+    Ok(())
 }
 
 // Read a list of task files from given directory
@@ -54,12 +59,11 @@ fn read_outputs(dir_path: &PathBuf, task: &Task) -> Vec<TaskOutput> {
 
         if path.extension().and_then(|ext| ext.to_str()) == Some("output") {
             if let Some(file_name) = path.file_stem().and_then(|s| s.to_str()) {
-                if let Some((id, machine_name)) = parse_output_filename(file_name) {
+                if let Some((id, model_name)) = parse_output_filename(file_name) {
                     if id == task.id {
                         outputs.push(TaskOutput {
                             response: fs::read_to_string(&path).unwrap().to_string(),
-                            model: "NA".to_string(),
-                            machine: machine_name.to_string(),
+                            model: model_name.to_string(),
                         });
                     }
                 }
@@ -81,45 +85,46 @@ fn parse_output_filename(file_name: &str) -> Option<(&str, &str)> {
 
 async fn generate_output(task: &Task) -> TaskOutput {
     let ollama = Ollama::default();
-
     let res = ollama.generate(GenerationRequest::new(MODEL.to_string(), &task.prompt)).await.unwrap();
 
     TaskOutput {
         response: res.response,
         model: MODEL.to_string(),
-        machine: gethostname::gethostname().into_string().unwrap(),
     }
 }
 
 fn generate_file_name(task: &Task, task_output: &TaskOutput) -> String {
-    format!("{}.{}.output", task.id, task_output.machine)
+    format!("{}.{}.output", task.id, task_output.model)
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
     env_logger::init();
     let args = Args::parse();
+    setup_model().await?;
 
     let tasks: Vec<Task> = read_tasks(&args.dir_path)
         .into_iter()
         .filter(|t| read_outputs(&args.dir_path, t).is_empty())
         .collect();
 
-    log::info!("Found {} tasks to do.", tasks.len());
+    log::info!("Found {} task(s) to do.", tasks.len());
 
-    let bar = indicatif::ProgressBar::new(tasks.len() as u64);
+    if !tasks.is_empty() {
+        let bar = indicatif::ProgressBar::new(tasks.len() as u64);
 
-    for task in tasks {
-        let task_output = generate_output(&task).await;
-        let file_name = generate_file_name(&task, &task_output);
+        for task in tasks {
+            let task_output = generate_output(&task).await;
+            let file_name = generate_file_name(&task, &task_output);
 
-        let mut file = fs::File::create(args.dir_path.join(file_name))?;
-        file.write_all(task_output.response.as_bytes())?;
+            let mut file = fs::File::create(args.dir_path.join(file_name))?;
+            file.write_all(task_output.response.as_bytes())?;
 
-        bar.inc(1);
+            bar.inc(1);
+        }
+
+        bar.finish();
     }
-
-    bar.finish();
 
     Ok(())
 }
