@@ -8,5 +8,15 @@ time to solve this solves them and writes out corresponding result file for
 syncing.
 
 For my use case, I am starting with creating a shared syncthing directory for
-tasks and results. The worker is a simple binary running on a cron on my
-machines that can run decent sized LLMs. This repository houses the worker code.
+tasks and results. The worker is a simple binary running on my machines that can
+run decent sized LLMs. This repository houses the worker code.
+
+To run the worker, first ensure you have ~ollama~ installed. Then run:
+
+#+begin_src shell
+  sched ./path/to/tasks/dir
+#+end_src
+
+Currently it defaults to a hardcoded model ~deepseek-r1:1.5b~ but this will
+change. Mostly we will allow providing model name via an environment variable or
+as an specification in the task themselves.
