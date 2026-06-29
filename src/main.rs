@@ -6,7 +6,7 @@ use std::fs::OpenOptions;
 
 use clap::Parser;
 
-const DEFAULT_MODEL: &str = "deepseek-r1:1.5b";
+const DEFAULT_MODEL: &str = "gemma4:e2b";
 
 #[derive(clap::Parser, Debug)]
 struct Args {
