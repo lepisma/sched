@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use ollama_rs::{generation::completion::request::GenerationRequest, Ollama};
 use std::{fs, io::Write};
 use anyhow::Result;
+use std::fs::OpenOptions;
 
 use clap::Parser;
 
@@ -88,6 +89,23 @@ fn parse_output_filename(file_name: &str) -> Option<(&str, &str)> {
     }
 }
 
+fn lock_path(dir_path: &PathBuf, task: &Task) -> PathBuf {
+    dir_path.join(format!("{}.lock", task.id))
+}
+
+// Returns true if this process successfully claimed the task
+fn try_claim_task(dir_path: &PathBuf, task: &Task) -> bool {
+    OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(lock_path(dir_path, task))
+        .is_ok()
+}
+
+fn release_task(dir_path: &PathBuf, task: &Task) {
+    let _ = fs::remove_file(lock_path(dir_path, task));
+}
+
 async fn generate_output(task: &Task) -> TaskOutput {
     let ollama = Ollama::default();
     let model = get_model_name();
@@ -130,6 +148,7 @@ async fn main() -> Result<()> {
         let tasks: Vec<Task> = read_tasks(&args.dir_path)
             .into_iter()
             .filter(|t| read_outputs(&args.dir_path, t).is_empty())
+            .filter(|t| !lock_path(&args.dir_path, t).exists())
             .collect();
 
         log::info!("Found {} task(s) to do.", tasks.len());
@@ -150,11 +169,18 @@ async fn main() -> Result<()> {
                     }
                 }
 
+                if !try_claim_task(&args.dir_path, &task) {
+                    log::info!("Task {} already claimed by another worker, skipping", task.id);
+                    bar.inc(1);
+                    continue;
+                }
+
                 let task_output = generate_output(&task).await;
                 let file_name = generate_file_name(&task, &task_output);
 
                 let mut file = fs::File::create(args.dir_path.join(file_name))?;
                 file.write_all(task_output.response.as_bytes())?;
+                release_task(&args.dir_path, &task);
 
                 bar.inc(1);
             }
